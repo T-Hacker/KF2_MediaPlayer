@@ -9,7 +9,7 @@ It’s not required to have a keyboard with Media Keys, but it helps in some cas
 By using this software, you are agreeing with this license: https://raw.githubusercontent.com/T-Hacker/KF2_MediaPlayer/master/LICENSE
 
 ##Installation
-1. Download KF2_MediaPlayer.exe and KF2_MediaPlayer_Hook.dll from here: https://github.com/T-Hacker/KF2_MediaPlayer/tree/master/x64/Release
+1. Download KF2_MediaPlayer.exe and KF2_MediaPlayer_Hook.dll from here: https://github.com/T-Hacker/KF2_MediaPlayer/tree/master/x64/Release [Note: After clicking on the file, click on the “Raw” button to start the download].
 2. Place them next to KFGame.exe. It’s usually located in “C:\Program Files\Steam\steamapps\common\killingfloor2\Binaries\Win64”.
 
 ##How to use
