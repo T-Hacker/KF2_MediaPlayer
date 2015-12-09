@@ -11,16 +11,14 @@
 
 using namespace std;
 
-typedef NTSTATUS(WINAPI *FP_ZwReadFile)(
-	HANDLE FileHandle,
-	HANDLE Event,
-	LPVOID ApcRoutine,
-	PVOID ApcContext,
-	LPVOID IoStatusBlock,
-	PVOID Buffer,
-	ULONG Length,
-	PLARGE_INTEGER ByteOffset,
-	PULONG Key);
+typedef HANDLE(WINAPI *FP_CreateFile)(
+	LPCTSTR               lpFileName,
+	DWORD                 dwDesiredAccess,
+	DWORD                 dwShareMode,
+	LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+	DWORD                 dwCreationDisposition,
+	DWORD                 dwFlagsAndAttributes,
+	HANDLE                hTemplateFile);
 
 enum class MusicType
 {
@@ -30,7 +28,7 @@ enum class MusicType
 
 unordered_map<string, MusicType> musicFileMap;
 
-FP_ZwReadFile fpZwReadFile;
+FP_CreateFile fpCreateFile;
 
 bool isPlayingMusic = false;
 
@@ -50,25 +48,21 @@ void firePlayPauseKey()
 	SendInput(1, &ip, sizeof(INPUT));
 }
 
-NTSTATUS WINAPI ZwReadFile_Hook(
-	HANDLE FileHandle,
-	HANDLE Event,
-	LPVOID ApcRoutine,
-	PVOID ApcContext,
-	LPVOID IoStatusBlock,
-	PVOID Buffer,
-	ULONG Length,
-	PLARGE_INTEGER ByteOffset,
-	PULONG Key)
+HANDLE WINAPI CreateFile_Hook(
+	_In_     LPCTSTR               lpFileName,
+	_In_     DWORD                 dwDesiredAccess,
+	_In_     DWORD                 dwShareMode,
+	_In_opt_ LPSECURITY_ATTRIBUTES lpSecurityAttributes,
+	_In_     DWORD                 dwCreationDisposition,
+	_In_     DWORD                 dwFlagsAndAttributes,
+	_In_opt_ HANDLE                hTemplateFile
+	)
 {
-
-	TCHAR Path[BUFSIZE];
-	DWORD dwRet = GetFinalPathNameByHandle(FileHandle, Path, BUFSIZE, VOLUME_NAME_NT);
-	if (dwRet < BUFSIZE)
+	if (dwDesiredAccess == GENERIC_READ)
 	{
 		TCHAR filename_w[BUFSIZE];
 		TCHAR ext_w[BUFSIZE];
-		if (_wsplitpath_s(Path, nullptr, 0, nullptr, 0, filename_w, BUFSIZE, ext_w, BUFSIZE) == 0)
+		if (_wsplitpath_s(lpFileName, nullptr, 0, nullptr, 0, filename_w, BUFSIZE, ext_w, BUFSIZE) == 0)
 		{
 			if (wcscat_s(filename_w, BUFSIZE, ext_w) != 0)
 			{
@@ -97,8 +91,7 @@ NTSTATUS WINAPI ZwReadFile_Hook(
 		}
 	}
 
-	return fpZwReadFile(
-		FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+	return fpCreateFile(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
 
 bool hasEnding(std::string const &fullString, std::string const &ending)
@@ -167,16 +160,29 @@ bool HookReadFile()
 		return false;
 	}
 
-	HMODULE hModule = GetModuleHandleA("ntdll.dll");
-	LPVOID pTarget = GetProcAddress(hModule, "ZwReadFile"); // "NtReadFile" works too.
-
-	if (MH_CreateHook(pTarget, &ZwReadFile_Hook, reinterpret_cast<void**>(&fpZwReadFile)) != MH_OK)
+	HMODULE hModule = GetModuleHandleA("Kernel32.dll");
+	if (hModule == nullptr)
 	{
+		MessageBox(nullptr, L"Fail to get module handle!", L"KF2_MediaPlayer", MB_OK);
+		return false;
+	}
+
+	LPVOID pTarget = GetProcAddress(hModule, "CreateFileW");
+	if (pTarget == nullptr)
+	{
+		MessageBox(nullptr, L"Fail to get function address!", L"KF2_MediaPlayer", MB_OK);
+		return false;
+	}
+
+	if (MH_CreateHook(pTarget, &CreateFile_Hook, reinterpret_cast<void**>(&fpCreateFile)) != MH_OK)
+	{
+		MessageBox(nullptr, L"Fail to create hook!", L"KF2_MediaPlayer", MB_OK);
 		return false;
 	}
 
 	if (MH_EnableHook(pTarget) != MH_OK)
 	{
+		MessageBox(nullptr, L"Fail to enable hook!", L"KF2_MediaPlayer", MB_OK);
 		return false;
 	}
 
