@@ -32,6 +32,10 @@ FP_CreateFile fpCreateFile;
 
 bool isPlayingMusic = false;
 
+#ifdef _DEBUG
+wofstream logFile("C:\\Users\\Pedro\\Documents\\My Games\\KillingFloor2\\KFGame\\Logs\\KF2_MediaPlayer.log");
+#endif
+
 void firePlayPauseKey()
 {
 	INPUT ip;
@@ -60,10 +64,20 @@ HANDLE WINAPI CreateFile_Hook(
 {
 	if (dwDesiredAccess == GENERIC_READ)
 	{
+
+
 		TCHAR filename_w[BUFSIZE];
 		TCHAR ext_w[BUFSIZE];
 		if (_wsplitpath_s(lpFileName, nullptr, 0, nullptr, 0, filename_w, BUFSIZE, ext_w, BUFSIZE) == 0)
 		{
+#ifdef _DEBUG
+			if (wcscmp(ext_w, L".wem") == 0)
+			{
+				logFile << lpFileName << endl;
+				logFile.flush();
+			}
+#endif
+
 			if (wcscat_s(filename_w, BUFSIZE, ext_w) != 0)
 			{
 				MessageBox(nullptr, L"Fail to join filename with extension.", L"KF2_MediaPlayer", MB_OK);
@@ -131,25 +145,27 @@ void CreateMusicFileHashTable()
 {
 #ifdef _DEBUG
 	const char* musicActionFileName = "D:\\SteamLibrary\\steamapps\\common\\killingfloor2\\KFGame\\BrewedPC\\WwiseAudio\\Windows\\WwiseDefaultBank_WW_MACT_Default.txt";
-	const char* musicAmbientFilesName = "D:\\SteamLibrary\\steamapps\\common\\killingfloor2\\KFGame\\BrewedPC\\WwiseAudio\\Windows\\WwiseDefaultBank_WW_MAMB_Default.txt";
+	//const char* musicAmbientFilesName = "D:\\SteamLibrary\\steamapps\\common\\killingfloor2\\KFGame\\BrewedPC\\WwiseAudio\\Windows\\WwiseDefaultBank_WW_MAMB_Default.txt";
 #else
 	const char* musicActionFileName = "..\\..\\KFGame\\BrewedPC\\WwiseAudio\\Windows\\WwiseDefaultBank_WW_MACT_Default.txt";
 	const char* musicAmbientFilesName = "..\\..\\KFGame\\BrewedPC\\WwiseAudio\\Windows\\WwiseDefaultBank_WW_MAMB_Default.txt";
 #endif
 
 	const auto musicActionFiles = findWEMFile(musicActionFileName);
-	const auto musicAmbientFiles = findWEMFile(musicAmbientFilesName);
+	//const auto musicAmbientFiles = findWEMFile(musicAmbientFilesName);
 
-	musicFileMap.reserve(musicActionFiles.size() + musicAmbientFiles.size());
+	musicFileMap.reserve(musicActionFiles.size() + 1 /* + musicAmbientFiles.size()*/);
 	for (const auto &f : musicActionFiles)
 	{
 		musicFileMap[f] = MusicType::Action;
 	}
 
-	for (const auto &f : musicAmbientFiles)
-	{
-		musicFileMap[f] = MusicType::Ambient;
-	}
+	//for (const auto &f : musicAmbientFiles)
+	//{
+	//	musicFileMap[f] = MusicType::Ambient;
+	//}
+
+	musicFileMap["265820813.wem"] = MusicType::Ambient;		// End of the wave music.
 }
 
 bool HookReadFile()
